@@ -26,9 +26,7 @@ final class RemoteDataFetcherStrategy: NSObject, DataFetcherStrategy {
     }
 
     func fetchMetaData() -> AnyPublisher<AssetMetaData, Error> {
-        return Future { [weak self] promise in
-            guard let self else { return }
-
+        Future { promise in
             var urlRequest = URLRequest(url: self.url)
             urlRequest.setValue("bytes=0-1", forHTTPHeaderField: "Range")
 
@@ -83,8 +81,7 @@ final class RemoteDataFetcherStrategy: NSObject, DataFetcherStrategy {
     }
 
     func fetchMediaData(start: Int, length: DataFetcherRequestLength) -> AnyPublisher<Data, Error> {
-        return subject.handleEvents { _ in
-
+        subject.handleEvents { _ in
             let rangeString: String
             switch length {
             case .totalLength:
@@ -104,7 +101,9 @@ final class RemoteDataFetcherStrategy: NSObject, DataFetcherStrategy {
 
         } receiveCompletion: { _ in
 
-        } receiveCancel: {} receiveRequest: { _ in
+        } receiveCancel: {
+
+        } receiveRequest: { _ in
 
         }
         .eraseToAnyPublisher()

@@ -26,12 +26,13 @@ final class RemoteDataFetcherStrategy: NSObject, DataFetcherStrategy {
     }
 
     func fetchMetaData() -> AnyPublisher<AssetMetaData, Error> {
-        return Future { promise in
+        return Future { [weak self] promise in
+            guard let self else { return }
+
             var urlRequest = URLRequest(url: self.url)
             urlRequest.setValue("bytes=0-1", forHTTPHeaderField: "Range")
 
             let dataTask = self.network.dataTask(with: urlRequest) { _, response, responseError in
-
                 if let error = responseError {
                     promise(.failure(error))
                     return
@@ -54,8 +55,7 @@ final class RemoteDataFetcherStrategy: NSObject, DataFetcherStrategy {
                     return
                 }
 
-                guard let contentRange = allHeaderFields["content-range"],
-                      let contentLength = Int(contentRange.split(separator: "/").map { String($0) }.last ?? "0") else {
+                guard let contentLength = allHeaderFields["content-length"].flatMap(Int.init) else {
                     promise(.failure(PlayerCacherError.responseMissingRequiredHeader("content-range")))
                     return
                 }
@@ -67,13 +67,19 @@ final class RemoteDataFetcherStrategy: NSObject, DataFetcherStrategy {
 
                 let isByteRangeAccessSupported = (acceptRanges == "bytes") ? true : false
 
-                promise(.success(AssetMetaData(contentLength: contentLength, contentType: contentType, isByteRangeAccessSupported: isByteRangeAccessSupported)))
+                promise(.success(AssetMetaData(
+                    contentLength: contentLength,
+                    contentType: contentType,
+                    isByteRangeAccessSupported: isByteRangeAccessSupported
+                )))
             }
 
             self.dispatchQueue.async {
                 dataTask.resume()
             }
-        }.receive(on: dispatchQueue).eraseToAnyPublisher()
+        }
+        .receive(on: dispatchQueue)
+        .eraseToAnyPublisher()
     }
 
     func fetchMediaData(start: Int, length: DataFetcherRequestLength) -> AnyPublisher<Data, Error> {
@@ -100,7 +106,8 @@ final class RemoteDataFetcherStrategy: NSObject, DataFetcherStrategy {
 
         } receiveCancel: {} receiveRequest: { _ in
 
-        }.eraseToAnyPublisher()
+        }
+        .eraseToAnyPublisher()
     }
 
     func cancel() {
